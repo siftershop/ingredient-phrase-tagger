@@ -2,7 +2,7 @@
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
-  name: sifter-wagtail-indexing
+  name: {{ .Values.app.appName }}
   namespace: default
 spec:
   schedule: "1 1 * * *"
