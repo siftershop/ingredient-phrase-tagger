@@ -1,5 +1,8 @@
 FROM mtlynch/crfpp
-LABEL maintainer="Michael Lynch <michael@mtlynch.io>"
+LABEL maintainer="Ojas Kale <ojas.kale@egen.solutions>"
+
+ENV TZ=America/Chicago \
+    DEBIAN_FRONTEND=noninteractive
 
 ARG BUILD_DATE
 ENV VCS_URL https://github.com/mtlynch/ingredient-phrase-tagger.git

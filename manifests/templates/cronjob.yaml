@@ -1,0 +1,42 @@
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: sifter-wagtail-indexing
+  namespace: default
+spec:
+  schedule: "1 1 * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - command:
+              - bash
+              - '-c'
+              - |
+                MODEL_DIR=$(mktemp -d)
+                bin/train-prod-model "$MODEL_DIR"
+                MODEL_FILE=$(find $MODEL_DIR -name '*.crfmodel')
+
+                echo Done Bulding file $MODEL_FILE !
+            envFrom:
+            - configMapRef:
+                name: sifter-api-configmap
+            env:
+              - name: DATABASE_HOST
+                value: postgres.{{ .Values.env.envName }}.sifter.tech
+#              - name: ELASTICSEARCH_PASSWORD
+#                valueFrom:
+#                  secretKeyRef:
+#                    name: vault-live-elasticsearch
+#                    key: live-es-password
+            image: sifteracr.azurecr.io/{{ .Values.app.appName }}:#{IMAGE_TAG}
+            imagePullPolicy: Always
+            name: {{ .Values.app.appName }}
+            resources: {}
+          restartPolicy: OnFailure
+          imagePullSecrets:
+            - name: imagepullsecretesifter
