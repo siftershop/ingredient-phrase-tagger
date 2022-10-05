@@ -20,19 +20,34 @@ spec:
                 MODEL_DIR=$(mktemp -d)
                 bin/train-prod-model "$MODEL_DIR"
                 MODEL_FILE=$(find $MODEL_DIR -name '*.crfmodel')
-
                 echo Done Bulding file $MODEL_FILE !
-            envFrom:
-            - configMapRef:
-                name: sifter-api-configmap
+
+                az storage blob upload -c models -n $(date +%Y-%m-%d).crfmodel -f $MODEL_FILE --account-name "ingredienttagger" --account-key $INGRED_TAGGER_ACCESS_KEY
+                echo Uploaded crfmodel model file
+
             env:
-              - name: DATABASE_HOST
-                value: postgres.{{ .Values.env.envName }}.sifter.tech
-#              - name: ELASTICSEARCH_PASSWORD
-#                valueFrom:
-#                  secretKeyRef:
-#                    name: vault-live-elasticsearch
-#                    key: live-es-password
+              - name: ENV
+                value: dev
+              - name: INGRED_TAGGER_ACCESS_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: vault-ingred-tagger
+                    key: access-key
+            affinity:
+              nodeAffinity:
+                preferredDuringSchedulingIgnoredDuringExecution:
+                  - weight: 1
+                    preference:
+                      matchExpressions:
+                        - key: ingredtagger
+                          operator: In
+                          values:
+                            - 'true'
+            tolerations:
+              - key: dedicated
+                operator: Equal
+                value: ingredtagger
+                effect: NoSchedule
             image: sifteracr.azurecr.io/{{ .Values.app.appName }}:#{IMAGE_TAG}
             imagePullPolicy: Always
             name: {{ .Values.app.appName }}
