@@ -34,10 +34,13 @@ spec:
                   secretKeyRef:
                     name: vault-ingred-tagger
                     key: access-key
+            resources:
+              requests:
+                cpu: "6000m"
+                memory: "3Gi"
             image: sifteracr.azurecr.io/{{ .Values.app.appName }}:#{IMAGE_TAG}
             imagePullPolicy: Always
             name: {{ .Values.app.appName }}
-            resources: {}
           affinity:
             nodeAffinity:
               preferredDuringSchedulingIgnoredDuringExecution:
