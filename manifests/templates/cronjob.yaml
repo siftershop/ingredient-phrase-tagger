@@ -33,22 +33,21 @@ spec:
                   secretKeyRef:
                     name: vault-ingred-tagger
                     key: access-key
-            affinity:
-              nodeAffinity:
-                preferredDuringSchedulingIgnoredDuringExecution:
-                  - weight: 1
-                    preference:
-                      matchExpressions:
-                        - key: indexer
-                          operator: In
-                          values:
-                            - 'true'
-
-            tolerations:
-              - key: dedicated
-                operator: Equal
-                value: indexer
-                effect: NoSchedule
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 1
+                  preference:
+                    matchExpressions:
+                      - key: indexer
+                        operator: In
+                        values:
+                          - 'true'
+          tolerations:
+            - key: dedicated
+              operator: Equal
+              value: indexer
+              effect: NoSchedule
             image: sifteracr.azurecr.io/{{ .Values.app.appName }}:#{IMAGE_TAG}
             imagePullPolicy: Always
             name: {{ .Values.app.appName }}
