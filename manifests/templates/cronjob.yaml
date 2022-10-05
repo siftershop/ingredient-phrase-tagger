@@ -39,14 +39,15 @@ spec:
                   - weight: 1
                     preference:
                       matchExpressions:
-                        - key: ingredtagger
+                        - key: indexer
                           operator: In
                           values:
                             - 'true'
+
             tolerations:
               - key: dedicated
                 operator: Equal
-                value: ingredtagger
+                value: indexer
                 effect: NoSchedule
             image: sifteracr.azurecr.io/{{ .Values.app.appName }}:#{IMAGE_TAG}
             imagePullPolicy: Always
