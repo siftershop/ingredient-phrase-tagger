@@ -34,6 +34,10 @@ spec:
                   secretKeyRef:
                     name: vault-ingred-tagger
                     key: access-key
+            image: sifteracr.azurecr.io/{{ .Values.app.appName }}:#{IMAGE_TAG}
+            imagePullPolicy: Always
+            name: {{ .Values.app.appName }}
+            resources: {}
           affinity:
             nodeAffinity:
               preferredDuringSchedulingIgnoredDuringExecution:
@@ -49,10 +53,6 @@ spec:
               operator: Equal
               value: indexer
               effect: NoSchedule
-            image: sifteracr.azurecr.io/{{ .Values.app.appName }}:#{IMAGE_TAG}
-            imagePullPolicy: Always
-            name: {{ .Values.app.appName }}
-            resources: {}
           restartPolicy: OnFailure
           imagePullSecrets:
             - name: imagepullsecretesifter
