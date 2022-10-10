@@ -1,11 +1,11 @@
-FROM mtlynch/crfpp
+FROM sifteracr.azurecr.io/crfpp:0.1
 LABEL maintainer="Ojas Kale <ojas.kale@egen.solutions>"
 
 ENV TZ=America/Chicago \
     DEBIAN_FRONTEND=noninteractive
 
 ARG BUILD_DATE
-ENV VCS_URL https://github.com/mtlynch/ingredient-phrase-tagger.git
+ENV VCS_URL https://github.com/siftershop/ingredient-phrase-tagger.git
 ARG VCS_REF
 
 LABEL org.label-schema.build-date=$BUILD_DATE \
