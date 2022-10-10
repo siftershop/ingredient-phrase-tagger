@@ -14,7 +14,7 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.schema-version="1.0.0-rc1"
 
 RUN apt-get update -y && \
-    apt-get install -y git python3.9 python3-setuptools python3-pip curl && \
+    apt-get install -y git python3.8 python3-setuptools python3-pip curl && \
     rm -Rf /usr/share/doc && \
     rm -Rf /usr/share/man && \
     apt-get autoremove -y && \
