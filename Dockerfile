@@ -1,4 +1,4 @@
-FROM sifteracr.azurecr.io/crfpp:0.1
+FROM sifteracr.azurecr.io/crfpp:0.2
 LABEL maintainer="Ojas Kale <ojas.kale@egen.solutions>"
 
 ENV TZ=America/Chicago \
