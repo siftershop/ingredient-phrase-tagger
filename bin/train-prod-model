@@ -12,7 +12,7 @@ set -e
 # Echo commands to stdout.
 set -x
 
-export LABELLED_DATA_FILE=nyt-ingredients-snapshot-2015.csv
+#export LABELLED_DATA_FILE=nyt-ingredients-snapshot-2015.csv
 export TRAINING_DATA_PERCENT=0.9
 if [ -z "$1" ];
   then echo "Usage: train-prod-model output_dir" && exit 1;
