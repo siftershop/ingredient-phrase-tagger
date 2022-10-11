@@ -1,6 +1,6 @@
 ---
 
-apiVersion: batch/v1beta1
+apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: {{ .Values.app.appName }}
@@ -19,16 +19,19 @@ spec:
               command:
                 - /bin/sh
                 - '-c'
-                - >
-                  wget
-                  https://ingredienttagger.blob.core.windows.net/trainingdata/tainingdata.csv
+                - |
+                  wget https://ingredienttagger.blob.core.windows.net/trainingdata/tainingdata.csv
+                  mv tainingdata.csv /work-dir/tainingdata.csv
+              volumeMounts:
+                - name: workdir
+                  mountPath: "/work-dir"
           containers:
           - command:
               - bash
               - '-c'
               - |
+                cp /work-dir/tainingdata.csv /app/tainingdata.csv
                 MODEL_DIR=$(mktemp -d)
-                sleep infinity
                 bin/train-prod-model "$MODEL_DIR"
                 MODEL_FILE=$(find $MODEL_DIR -name '*.crfmodel')
                 echo Done Bulding file $MODEL_FILE !
@@ -46,6 +49,9 @@ spec:
                   secretKeyRef:
                     name: vault-ingred-tagger
                     key: access-key
+            volumeMounts:
+              - name: workdir
+                mountPath: /work-dir
             resources:
               requests:
                 cpu: "6000m"
@@ -71,3 +77,6 @@ spec:
           restartPolicy: OnFailure
           imagePullSecrets:
             - name: imagepullsecretesifter
+          volumes:
+            - name: workdir
+              emptyDir: {}
