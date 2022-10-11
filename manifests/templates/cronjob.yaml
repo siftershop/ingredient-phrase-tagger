@@ -15,23 +15,25 @@ spec:
         spec:
           initContainers:
             - name: imagepuller
-              image: busybox
+              image: sifteracr.azurecr.io/python-kubectl:2
               command:
-                - apt update
-                - apt install wget -y
-                - wget https://ingredienttagger.blob.core.windows.net/trainingdata/tainingdata.csv
-                - mv tainingdata.csv /app
+                - /bin/sh
+                - '-c'
+                - >
+                  wget
+                  https://ingredienttagger.blob.core.windows.net/trainingdata/tainingdata.csv
           containers:
           - command:
               - bash
               - '-c'
               - |
                 MODEL_DIR=$(mktemp -d)
+                sleep infinity
                 bin/train-prod-model "$MODEL_DIR"
                 MODEL_FILE=$(find $MODEL_DIR -name '*.crfmodel')
                 echo Done Bulding file $MODEL_FILE !
 
-                az storage blob upload -c models -n $(date +%Y-%m-%d).crfmodel -f $MODEL_FILE --account-name "ingredienttagger" --account-key $INGRED_TAGGER_ACCESS_KEY
+                az storage blob upload -c models -n readyToUseModel.crfmodel -f $MODEL_FILE --account-name "ingredienttagger" --account-key $INGRED_TAGGER_ACCESS_KEY --overwrite
                 echo Uploaded crfmodel model file
 
             env:
