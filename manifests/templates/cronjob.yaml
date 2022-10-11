@@ -13,6 +13,14 @@ spec:
     spec:
       template:
         spec:
+          initContainers:
+            - name: imagePuller
+              image: busybox
+              command:
+                - apt update
+                - apt install wget -y
+                - wget https://ingredienttagger.blob.core.windows.net/trainingdata/tainingdata.csv
+                - mv tainingdata.csv /app
           containers:
           - command:
               - bash
@@ -29,6 +37,8 @@ spec:
             env:
               - name: ENV
                 value: dev
+              - name: LABELLED_DATA_FILE
+                value: tainingdata.csv
               - name: INGRED_TAGGER_ACCESS_KEY
                 valueFrom:
                   secretKeyRef:
