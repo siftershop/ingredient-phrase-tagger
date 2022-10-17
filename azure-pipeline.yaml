@@ -1,0 +1,190 @@
+trigger:
+  - main
+  - develop
+pr:
+  branches:
+    include:
+    - '*'
+
+variables:
+  - group: sifter-pipeline-vars
+  - name: githubRepository
+    value: ingredient-phrase-tagger
+  - name: acrRepository
+    value: ingredient-phrase-tagger
+  - name: vmImageName
+    value: ubuntu-latest
+
+stages:
+  - stage: Test
+    displayName: Test Stage
+    jobs:
+      - job: Test
+        displayName: Test
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - bash: |
+              echo Build Reason: $BUILD_REASON
+              echo Source Branch Name: $BUILD_SOURCEBRANCHNAME
+              echo Pull Request Source Branch: $SYSTEM_PULLREQUEST_SOURCEBRANCH
+              echo Pull Request Target Branch: $SYSTEM_PULLREQUEST_TARGETBRANCH
+            displayName: Run Parameters
+
+          - bash: |
+              echo "THIS IS THE TESTING JOB"
+            displayName: Testing
+
+  - stage: Build
+    displayName: Build and Release Stage
+    condition: and(
+      in(variables['Build.Reason'], 'IndividualCI', 'BatchedCI', 'Manual'),
+      succeeded(),
+      in(variables['Build.SourceBranchName'], 'main', 'develop')
+      )
+
+    jobs:
+      - job: Build
+        displayName: Build N Release
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - bash: |
+              # create pipeline variables
+              echo SETTING DEV AS THE DEFAULT RELEASE ENVIRONMENT
+              echo "##vso[task.setvariable variable=releaseCycleDefaultEnv]$(releaseCycleDefaultEnvDevelop)"
+            displayName: Set Dev as the Default Release Environment
+            condition: eq(variables['Build.SourceBranchName'], 'develop')
+
+          - bash: |
+              # create pipeline variables
+              echo SETTING STAGE AS THE DEFAULT RELEASE ENVIRONMENT
+              echo "##vso[task.setvariable variable=releaseCycleDefaultEnv]$(releaseCycleDefaultEnvMaster)"
+            displayName: Set Stage as the Default Release Environment
+            condition: eq(variables['Build.SourceBranchName'], 'main')
+
+          - bash: |
+              GIT_HASH=$(echo $BUILD_SOURCEVERSION | cut -c 1-7)
+              echo "This is the git SHA: $GIT_HASH"
+
+              # create pipeline variables
+              echo "##vso[task.setvariable variable=git_build_tag]$GIT_HASH"
+            displayName: Set Git Hash as Build Tag
+
+          - bash: |
+              echo My pipeline variable for Build Tag is $(GIT_BUILD_TAG)
+              echo Default Release Environment is $(releaseCycleDefaultEnv)
+            displayName: Test Release Environment and Build Tag
+
+          - task: Docker@2
+            displayName: Build and push an image to container registry
+            inputs:
+              command: buildAndPush
+              repository: $(acrRepository)
+              dockerfile: Dockerfile
+              containerRegistry: $(acrServiceConnection)
+              tags: |
+                $(GIT_BUILD_TAG)
+
+          - bash: |
+              curl https://bootstrap.pypa.io/get-pip.py | python3
+              pip3 install yq
+
+              echo -e "\n####################################"
+              echo "############## Finished Installations ##############"
+
+              export PATH="/home/vsts/.local/bin:$PATH"
+              export GITHUB_TOKEN="$(githubAccessToken)"
+              GIT_HASH=$(echo $BUILD_SOURCEVERSION | cut -c 1-7)
+              IMAGE_TAG=$(echo $BUILD_SOURCEVERSION | cut -c 1-7)
+
+              git config --global user.email "$(githubUserEmail)"
+              git config --global user.name "$(githubUserName)"
+              git config --global github.user "$(githubUserHandle)"
+
+              git clone https://$GITHUB_TOKEN:x-oauth-basic@github.com/$(githubOrg)/$(releaseCycleDefaultEnv).git
+              cd $(releaseCycleDefaultEnv)
+              git fetch
+
+              echo *****************************************f***
+              echo git checkout $(githubRepository)
+              echo ********************************************
+
+              git checkout $(githubRepository) || git branch $(githubRepository)
+              git checkout $(githubRepository)
+
+              mkdir -p apps/templates/$(githubRepository)
+              mkdir -p apps/manifests/$(githubRepository)
+              echo "############## Making App Dirs ##############"
+
+              rm -rf apps/templates/$(githubRepository)/*
+              rm -rf apps/manifests/$(githubRepository)/*
+              echo "############## Cleaning App Dirs ##############"
+
+              cp -r ../manifests/* ./apps/templates/$(githubRepository)/
+
+              CURRENT_ENV_QUOTES=$(cat env-config.yaml | yq .env.envName)
+              CURRENT_ENV=$(sed 's/"//g' <<< $CURRENT_ENV_QUOTES)
+
+              echo "############## Copying manifest templates ##############"
+
+              sed -i "s~#{IMAGE_TAG}~$IMAGE_TAG~" ./apps/templates/$(githubRepository)/templates/cronjob.yaml
+
+              echo "############## SED the Image Tag ##############"
+
+
+              mkdir -p helm_dir
+              echo -e "name: helm_chart\nversion: 0.1.0" > helm_dir/Chart.yaml
+              cp -r ./apps/templates/$(githubRepository)/* ./helm_dir/
+              cd helm_dir
+              helm template ./ --output-dir ./ -f app-config.yaml -f ../env-config.yaml
+              cd ..
+
+              cp -r ./helm_dir/helm_chart/templates/* ./apps/manifests/$(githubRepository)/
+              rm -r helm_dir
+              echo "############## Finished Templating ##############"
+
+              git add -A
+              git commit -m "$(githubRepository) - $GIT_HASH"
+              echo pushing to $(githubRepository)
+              git push --set-upstream origin $(githubRepository)
+              echo "############## Pushed to $(githubRepository) branch ##############"
+              git branch
+              git checkout master
+
+              AUTODEPLOY_QUOTES=$(cat env-config.yaml | yq .env.autoDeploy)
+              AUTODEPLOY=$(sed 's/"//g' <<< $AUTODEPLOY_QUOTES)
+
+              pip3 -q install -r requirements.txt
+
+              echo -e "\n############## Starting the Pull Request Stuff ##############"
+
+              OP=$(python3 -c "from deploy import GetOpenPullRequestBetweenMasterAndRelease; \
+                GetOpenPullRequestBetweenMasterAndRelease('$GITHUB_TOKEN', \
+                '$(githubOrg)', '$(releaseCycleDefaultEnv)', '$(githubOrg):$(githubRepository)')")
+
+
+              # echo $OP
+              if [ "$OP" = "0" ]; then
+                echo "PR Does not exists; Creating..."
+                create_op=$(python3 -c "from deploy import createPR; \
+                      createPR('$GITHUB_TOKEN', \
+                      '$(githubOrg)', '$(releaseCycleDefaultEnv)', '$(githubRepository)', 'App PR: $(githubRepository) - $GIT_HASH')")
+                echo "New PR's ID is $create_op"
+              fi
+
+              echo "Auto-Deploy is set to $AUTODEPLOY"
+              if [ $AUTODEPLOY = true ]
+              then
+                OP=$(python3 -c "from deploy import GetOpenPullRequestBetweenMasterAndRelease; \
+                  GetOpenPullRequestBetweenMasterAndRelease('$GITHUB_TOKEN', \
+                  '$(githubOrg)', '$(releaseCycleDefaultEnv)', '$(githubOrg):$(githubRepository)')")
+                echo "PR ID $OP will be merged"
+
+                curl -XPUT -H "Authorization: token $GITHUB_TOKEN" \
+                https://api.github.com/repos/$(githubOrg)/$(releaseCycleDefaultEnv)/pulls/$OP/merge
+
+                echo "Finished Merge!"
+              fi
+              echo END OF BASH CODE
+            displayName: Git Release

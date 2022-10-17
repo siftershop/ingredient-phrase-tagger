@@ -5,6 +5,8 @@ __pycache__/
 # C extensions
 *.so
 
+infra/.terraform
+
 # Distribution / packaging
 .Python
 env/

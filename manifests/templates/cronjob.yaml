@@ -1,0 +1,82 @@
+---
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Values.app.appName }}
+  namespace: default
+spec:
+  schedule: "1 1 * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          initContainers:
+            - name: imagepuller
+              image: sifteracr.azurecr.io/python-kubectl:2
+              command:
+                - /bin/sh
+                - '-c'
+                - |
+                  wget https://ingredienttagger.blob.core.windows.net/trainingdata/tainingdata.csv
+                  mv tainingdata.csv /work-dir/tainingdata.csv
+              volumeMounts:
+                - name: workdir
+                  mountPath: "/work-dir"
+          containers:
+          - command:
+              - bash
+              - '-c'
+              - |
+                cp /work-dir/tainingdata.csv /app/tainingdata.csv
+                MODEL_DIR=$(mktemp -d)
+                bin/train-prod-model "$MODEL_DIR"
+                MODEL_FILE=$(find $MODEL_DIR -name '*.crfmodel')
+                echo Done Bulding file $MODEL_FILE !
+
+                az storage blob upload -c models -n readyToUseModel.crfmodel -f $MODEL_FILE --account-name "ingredienttagger" --account-key $INGRED_TAGGER_ACCESS_KEY --overwrite
+                echo Uploaded crfmodel model file
+
+            env:
+              - name: ENV
+                value: dev
+              - name: LABELLED_DATA_FILE
+                value: tainingdata.csv
+              - name: INGRED_TAGGER_ACCESS_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: vault-ingred-tagger
+                    key: access-key
+            volumeMounts:
+              - name: workdir
+                mountPath: /work-dir
+            resources:
+              requests:
+                cpu: "6000m"
+                memory: "3Gi"
+            image: sifteracr.azurecr.io/{{ .Values.app.appName }}:#{IMAGE_TAG}
+            imagePullPolicy: Always
+            name: {{ .Values.app.appName }}
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 1
+                  preference:
+                    matchExpressions:
+                      - key: indexer
+                        operator: In
+                        values:
+                          - 'true'
+          tolerations:
+            - key: dedicated
+              operator: Equal
+              value: indexer
+              effect: NoSchedule
+          restartPolicy: OnFailure
+          imagePullSecrets:
+            - name: imagepullsecretesifter
+          volumes:
+            - name: workdir
+              emptyDir: {}
