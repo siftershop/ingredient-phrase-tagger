@@ -8,6 +8,8 @@ ARG BUILD_DATE
 ENV VCS_URL https://github.com/siftershop/ingredient-phrase-tagger.git
 ARG VCS_REF
 
+RUN mv ingredient_phrase_tagger ipt
+
 LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.vcs-url="$VCS_URL" \
       org.label-schema.vcs-ref=$VCS_REF \
