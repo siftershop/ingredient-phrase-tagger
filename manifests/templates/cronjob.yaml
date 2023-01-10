@@ -44,6 +44,10 @@ spec:
                 value: dev
               - name: LABELLED_DATA_FILE
                 value: trainingdata_{{ .Values.env.envName }}.csv
+              - name: TRAINING_DATA_PERCENT
+                value: "1.0"
+              - name: CRF_TRAINING_THREADS
+                value: "6"
               - name: INGRED_TAGGER_ACCESS_KEY
                 valueFrom:
                   secretKeyRef:
