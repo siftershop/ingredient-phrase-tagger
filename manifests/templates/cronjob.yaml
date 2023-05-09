@@ -20,8 +20,13 @@ spec:
                 - /bin/sh
                 - '-c'
                 - |
+                  {{- if (eq .Values.env.envName "prodbatch") }}
+                  wget https://ingredienttagger.blob.core.windows.net/trainingdata/trainingdata_prod.csv
+                  mv trainingdata_prod.csv /work-dir/trainingdata_prod.csv
+                  {{- else }}
                   wget https://ingredienttagger.blob.core.windows.net/trainingdata/trainingdata_{{ .Values.env.envName }}.csv
                   mv trainingdata_{{ .Values.env.envName }}.csv /work-dir/trainingdata_{{ .Values.env.envName }}.csv
+                  {{- end }}
               volumeMounts:
                 - name: workdir
                   mountPath: "/work-dir"
@@ -30,20 +35,31 @@ spec:
               - bash
               - '-c'
               - |
+                {{- if (eq .Values.env.envName "prodbatch") }}
+                cp /work-dir/trainingdata_prod.csv /app/trainingdata_prod.csv
+                {{- else }}
                 cp /work-dir/trainingdata_{{ .Values.env.envName }}.csv /app/trainingdata_{{ .Values.env.envName }}.csv
+                {{- end }}
                 MODEL_DIR=$(mktemp -d)
                 bin/train-prod-model "$MODEL_DIR"
                 MODEL_FILE=$(find $MODEL_DIR -name '*.crfmodel')
                 echo Done Bulding file $MODEL_FILE !
-
+                {{- if (eq .Values.env.envName "prodbatch") }}
+                az storage blob upload -c models -n readyToUseModel_prod.crfmodel -f $MODEL_FILE --account-name "ingredienttagger" --account-key $INGRED_TAGGER_ACCESS_KEY --overwrite
+                {{- else }}
                 az storage blob upload -c models -n readyToUseModel_{{ .Values.env.envName }}.crfmodel -f $MODEL_FILE --account-name "ingredienttagger" --account-key $INGRED_TAGGER_ACCESS_KEY --overwrite
+                {{- end }}
                 echo Uploaded crfmodel model file
 
             env:
               - name: ENV
                 value: dev
               - name: LABELLED_DATA_FILE
+                {{- if (eq .Values.env.envName "prodbatch") }}
+                value: trainingdata_prod.csv
+                {{- else }}
                 value: trainingdata_{{ .Values.env.envName }}.csv
+                {{- end }}
               - name: TRAINING_DATA_PERCENT
                 value: "1.0"
               - name: CRF_TRAINING_THREADS
