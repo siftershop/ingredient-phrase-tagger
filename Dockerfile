@@ -2,7 +2,8 @@ FROM sifteracr.azurecr.io/crfpp:0.2
 LABEL maintainer="Ojas Kale <ojas.kale@egen.solutions>"
 
 ENV TZ=America/Chicago \
-    DEBIAN_FRONTEND=noninteractive
+    DEBIAN_FRONTEND=noninteractive \
+    PYTHONIOENCODING=utf-8
 
 ARG BUILD_DATE
 ENV VCS_URL https://github.com/siftershop/ingredient-phrase-tagger.git
