@@ -60,7 +60,7 @@ stages:
               # create pipeline variables
               echo SETTING STAGE AS THE DEFAULT RELEASE ENVIRONMENT
               echo "##vso[task.setvariable variable=releaseCycleDefaultEnv]$(releaseCycleDefaultEnvMaster)"
-            displayName: Set Stage as the Default Release Environment
+            displayName: Set Prodbatch as the Default Release Environment
             condition: eq(variables['Build.SourceBranchName'], 'main')
 
           - bash: |
