@@ -15,15 +15,23 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.schema-version="1.0.0-rc1"
 
 RUN apt-get update -y && \
-    apt-get install -y git python3.8 python3-setuptools python3-pip curl && \
+    apt-get install -y git software-properties-common wget libssl-dev libffi-dev openssl build-essential zlib1g-dev curl python3-dev  python3-setuptools python3-pip && \
+    add-apt-repository ppa:deadsnakes/ppa && \
+    wget https://www.python.org/ftp/python/3.8.13/Python-3.8.13.tgz && \
+    tar xzvf Python-3.8.13.tgz && \
+    cd Python-3.8.13 && \
+    ./configure --with-zlib && \
+    make && \
+    make install && \
     rm -Rf /usr/share/doc && \
     rm -Rf /usr/share/man && \
     apt-get autoremove -y && \
-    rm -rf /var/lib/apt/lists/*
+    cd .. && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip3 install --upgrade pip
 
 RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 
 ADD . /app
 WORKDIR /app
 
-RUN pip3 install .
