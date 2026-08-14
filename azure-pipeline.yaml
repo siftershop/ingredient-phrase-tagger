@@ -14,6 +14,13 @@ variables:
     value: ingredient-phrase-tagger
   - name: vmImageName
     value: ubuntu-latest
+  # Default so this always resolves. The branch steps below set it at runtime,
+  # but if neither fires -- a PR build, where Build.SourceBranchName is "merge"
+  # -- an undeclared $(imageTagSuffix) is left literal by ADO, and the image
+  # would be pushed as "<sha>$(imageTagSuffix)". Empty means the bare <sha> tag,
+  # exactly as before.
+  - name: imageTagSuffix
+    value: ''
 
 stages:
   - stage: Test
@@ -53,6 +60,11 @@ stages:
               # create pipeline variables
               echo SETTING DEV AS THE DEFAULT RELEASE ENVIRONMENT
               echo "##vso[task.setvariable variable=releaseCycleDefaultEnv]$(releaseCycleDefaultEnvDevelop)"
+              # Tag carries the environment it belongs to, so ACR retention can
+              # keep N per environment instead of N per repo. Without this a
+              # rarely-deployed release image sinks below fast-moving dev pushes
+              # and gets purged while it is still running.
+              echo "##vso[task.setvariable variable=imageTagSuffix]-dev"
             displayName: Set Dev as the Default Release Environment
             condition: eq(variables['Build.SourceBranchName'], 'develop')
 
@@ -60,6 +72,10 @@ stages:
               # create pipeline variables
               echo SETTING STAGE AS THE DEFAULT RELEASE ENVIRONMENT
               echo "##vso[task.setvariable variable=releaseCycleDefaultEnv]$(releaseCycleDefaultEnvMaster)"
+              # Explicitly empty: main-branch tagging is a separate change.
+              # Empty means this build pushes the bare <sha> tag exactly as it
+              # does today, so this commit cannot alter release behaviour.
+              echo "##vso[task.setvariable variable=imageTagSuffix]"
             displayName: Set Prodbatch as the Default Release Environment
             condition: eq(variables['Build.SourceBranchName'], 'main')
 
@@ -84,7 +100,7 @@ stages:
               dockerfile: Dockerfile
               containerRegistry: $(acrServiceConnection)
               tags: |
-                $(GIT_BUILD_TAG)
+                $(GIT_BUILD_TAG)$(imageTagSuffix)
 
           - bash: |
               curl https://bootstrap.pypa.io/get-pip.py | python3
@@ -96,7 +112,7 @@ stages:
               export PATH="/home/vsts/.local/bin:$PATH"
               export GITHUB_TOKEN="$(githubAccessToken)"
               GIT_HASH=$(echo $BUILD_SOURCEVERSION | cut -c 1-7)
-              IMAGE_TAG=$(echo $BUILD_SOURCEVERSION | cut -c 1-7)
+              IMAGE_TAG="$(echo $BUILD_SOURCEVERSION | cut -c 1-7)${IMAGETAGSUFFIX:-}"
 
               git config --global user.email "$(githubUserEmail)"
               git config --global user.name "$(githubUserName)"
